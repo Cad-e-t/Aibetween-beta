@@ -1,0 +1,989 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>AI Between — UI</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{
+      --bg:#0f1113;
+      --panel:#16181a;
+      --muted:#8b9096;
+      --accent:#4a9eff;
+      --accent2:#00d4ff;
+      --clip-orig:#2b2e33;
+      --clip-ai:#01343f;
+      --clip-ai-accent:#00d4ff;
+      --white:#f3f4f6;
+      --buffer-width: 160px;
+    }
+    html,body{
+      height:100%;
+      margin:0;
+      background:var(--bg);
+      color:var(--white);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+    }
+
+    /* Header - Full-bleed top edges */
+    #header{
+      width:100vw;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), transparent);
+      padding:12px 0;
+      box-sizing:border-box;
+      color:var(--white);
+      font-weight:600;
+      font-size:18px;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      position:sticky;
+      top:0;
+      z-index:100;
+      margin:0;
+    }
+    #header-label {
+      margin:0;
+      padding-left:20px;
+      flex-shrink:0;
+    }
+    #exportBtn{
+      background:transparent;
+      color:var(--accent2);
+      border:1px solid rgba(0,212,255,0.12);
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      transition: background 0.2s ease;
+      font-size:16px;
+      margin-right:20px;
+      flex-shrink:0;
+    }
+    #exportBtn:hover { background: rgba(0,212,255,0.08); }
+
+    /* Main content */
+    #main{
+      width:100%;
+      max-width:1200px;
+      padding:32px;
+      box-sizing:border-box;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:40px;
+      position: relative;
+    }
+
+    /* Upload / Video */
+    #uploadArea{
+      width:40vw;
+      max-width:960px;
+      aspect-ratio: 16/9;
+      background:var(--panel);
+      border-radius:10px;
+      border:2px dashed rgba(255,255,255,0.04);
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      position:relative;
+      overflow:hidden;
+      transition: border-color 0.2s ease;
+    }
+    #uploadPlaceholder{
+      color:var(--muted);
+      text-align:center;
+      pointer-events:none;
+      user-select:none;
+    }
+    #video{
+      width:100%;
+      height:100%;
+      display:none;
+      object-fit:contain;
+      background:black;
+    }
+
+    /* Spinner overlay */
+    #spinnerOverlay{
+      position:absolute;
+      inset:0;
+      display:none;
+      align-items:center;
+      justify-content:center;
+      background: linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.6));
+      z-index:50;
+      transition: opacity 0.2s ease;
+    }
+    .spinner{
+      width:56px;
+      height:56px;
+      border-radius:50%;
+      border:6px solid rgba(255,255,255,0.08);
+      border-top-color:var(--accent2);
+      animation:spin 1s linear infinite;
+    }
+    @keyframes spin{ to{ transform:rotate(360deg) } }
+
+    /* Timeline wrapper */
+    #timelineContainer{
+      width: calc(100vw - 64px);
+      max-width: none;
+      display:none;
+      flex-direction:column;
+      align-items: stretch;
+      gap:0;
+      transition: opacity 0.3s ease;
+      padding: 0 32px;
+    }
+
+    /* Play/Pause - Extreme left, clickable */
+    #playPauseBtn{
+      position: absolute;
+      left: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width:44px;
+      height:44px;
+      border-radius:50%;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      border:none;
+      flex-shrink:0;
+      font-size:18px;
+      background:var(--accent);
+      color:#fff;
+      transition: background 0.2s ease;
+      z-index: 35;
+      pointer-events: auto;
+    }
+    #playPauseBtn:hover { opacity: 0.8; }
+
+    /* Parent timeline bar */
+    #timelineBar{
+      position:relative;
+      width:100%;
+      height:140px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+      border:1px solid var(--muted);
+      border-radius:12px;
+      overflow:hidden;
+      display:flex;
+      align-items:center;
+      padding: 12px 0;
+      box-sizing:border-box;
+      margin:0;
+    }
+
+    /* Clip row */
+    #clipRow{
+      position:relative;
+      height:116px;
+      margin-left: var(--buffer-width);
+      width: calc(100% - var(--buffer-width));
+      display:flex;
+      gap:4px;
+      align-items:center;
+      justify-content: flex-start;
+      overflow: visible;
+    }
+
+    /* Clip blocks */
+    .clipBlock{
+      height:70%;
+      background:var(--clip-orig);
+      border-radius:6px;
+      overflow:hidden;
+      position:relative;
+      min-width:8px;
+      flex: 0 0 auto;
+      box-sizing: border-box;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      cursor:pointer;
+      transition: transform 0.1s ease;
+    }
+    .clipBlock:hover { transform: scale(1.02); }
+    .clipBlock.ai{ background: linear-gradient(180deg, #012e3b, var(--clip-ai)); border:1px solid rgba(0,212,255,0.08); }
+    .clipBlock.dragging-disabled { pointer-events: none; }
+
+    /* Mini-video in blocks */
+    .clipMiniVideo{
+      width:100%;
+      height:100%;
+      object-fit: cover;
+      display:block;
+      background:black;
+    }
+    .clipMiniVideo.dragging-disabled { pointer-events: none; }
+
+    /* Playhead */
+    #playhead{
+      position:absolute;
+      left: calc(var(--buffer-width) - 1.5px);
+      width:3px;
+      height:200px;
+      background:#fff;
+      z-index:40;
+      box-shadow:0 0 10px rgba(255,255,255,0.15);
+      cursor:ew-resize;
+      pointer-events: auto;
+    }
+
+    /* + button */
+    #playhead-plus{
+      position:absolute;
+      left: calc(var(--buffer-width) - 1.5px);
+      transform:translateX(-50%);
+      width:20px;
+      height:20px;
+      background:var(--accent2);
+      border:none;
+      border-radius:50%;
+      color:#022;
+      font-size:14px;
+      font-weight:bold;
+      cursor:pointer;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      z-index:60;
+      transition: background 0.2s ease, left 0.1s ease;
+      pointer-events: auto;
+      display: none;
+    }
+    #playhead-plus:hover { background: #00b8e6; }
+
+    /* Ruler */
+    #ruler{
+      position:absolute;
+      left: var(--buffer-width);
+      right:0;
+      top:0;
+      height:100%;
+      pointer-events:none;
+    }
+    .tick{
+      position:absolute;
+      top:0;
+      width:1px;
+      height:100%;
+      background:rgba(255,255,255,0.03);
+    }
+
+    /* Prompt area */
+    #promptBox{
+      width:40vw;
+      max-width:960px;
+      background:var(--panel);
+      padding:12px;
+      border-radius:10px;
+      display:none;
+      gap:8px;
+      box-sizing:border-box;
+      flex-direction:column;
+      align-items:stretch;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      opacity: 0;
+      transform: translateY(20px) translateX(-50%);
+      position: absolute;
+      left: 50%;
+      z-index: 70;
+      max-height: 300px;
+      top: auto;
+    }
+    #promptBox.show {
+      display: flex;
+      opacity: 1;
+      transform: translateY(0) translateX(-50%);
+    }
+    #promptInput{
+      flex:1;
+      padding:12px;
+      border-radius:8px;
+      border:1px solid rgba(255,255,255,0.04);
+      background:transparent;
+      color:var(--white);
+      font-size:14px;
+      outline:none;
+      min-height: 60px;
+      height: auto;
+      resize: none;
+      overflow: hidden;
+      line-height: 1.4;
+      font-family: inherit;
+    }
+    #promptInput:focus {
+      border-color: var(--accent2);
+    }
+    #generateBtn{
+      background:var(--accent2);
+      color:#022;
+      border:none;
+      padding:8px 12px;
+      border-radius:8px;
+      cursor:pointer;
+      transition: background 0.2s ease;
+      align-self: stretch;
+    }
+    #generateBtn:hover { background: #00b8e6; }
+    #generateBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* utility */
+    .sr-only{ position:absolute; left:-9999px; }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <div id="header">
+    <div id="header-label">AI Between</div>
+    <button id="exportBtn" title="Export">⬇</button>
+  </div>
+
+  <!-- Main -->
+  <div id="main">
+    <!-- Upload / Video -->
+    <div id="uploadArea" aria-hidden="false">
+      <div id="uploadPlaceholder">⬆️ Click or Drop Video</div>
+      <video id="video" playsinline controls crossorigin="anonymous"></video>
+      <input id="fileInput" type="file" accept="video/mp4,video/*" class="sr-only">
+      <div id="spinnerOverlay"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Timeline Container -->
+    <div id="timelineContainer">
+      <div id="timelineBar">
+        <!-- Play/Pause -->
+        <button id="playPauseBtn">▶︎</button>
+        <!-- Blocks -->
+        <div id="clipRow"></div>
+        <!-- Ruler -->
+        <div id="ruler"></div>
+        <!-- Playhead -->
+        <div id="playhead"></div>
+        <!-- + button: Separate -->
+        <button id="playhead-plus" title="Add AI Clip">+</button>
+      </div>
+    </div>
+
+    <!-- Prompt -->
+    <div id="promptBox">
+      <textarea id="promptInput" placeholder="Describe the AI clip (e.g. cinematic slow-mo). Use Enter for new lines—it will expand upwards!"></textarea>
+      <button id="generateBtn">Generate</button>
+    </div>
+  </div>
+
+<script>
+/* Config & State */
+const API_ROOT = "";
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('fileInput');
+const placeholder = document.getElementById('uploadPlaceholder');
+const video = document.getElementById('video');
+const spinnerOverlay = document.getElementById('spinnerOverlay');
+
+const timelineContainer = document.getElementById('timelineContainer');
+const clipRow = document.getElementById('clipRow');
+const playPauseBtn = document.getElementById('playPauseBtn');
+const playhead = document.getElementById('playhead');
+const ruler = document.getElementById('ruler');
+const promptBox = document.getElementById('promptBox');
+const promptInput = document.getElementById('promptInput');
+const generateBtn = document.getElementById('generateBtn');
+const exportBtn = document.getElementById('exportBtn');
+const playheadPlus = document.getElementById('playhead-plus');
+const BUFFER_WIDTH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--buffer-width'));
+
+let timelineId = null;
+let timelineData = null;
+let totalDuration = 0;
+let isPlayingTimeline = false;
+let timelinePlayAbort = false;
+let draggingPlayhead = false;
+let globalPlayheadTime = 0;
+let playbackAnimationId = null;
+let playbackStartRealTime = 0;
+let playbackStartGlobal = 0;
+let miniVideos = [];
+
+/* Utility functions */
+function showSpinner(show){
+  spinnerOverlay.style.display = show ? 'flex' : 'none';
+  if (show) spinnerOverlay.style.opacity = '1';
+  else spinnerOverlay.style.opacity = '0';
+}
+
+function hideAllPostUploadElements() {
+  timelineContainer.style.display = 'none';
+  playheadPlus.style.display = 'none';
+  promptBox.classList.remove('show');
+  promptBox.style.display = 'none';
+  miniVideos.forEach(v => { v.pause(); v.currentTime = 0; v.style.opacity = 0; });
+  miniVideos = [];
+}
+
+function computeTotalDuration(clipsArray){
+  return clipsArray.reduce((s,c)=> s + (c.end - c.start), 0);
+}
+
+function findClipByGlobalTime(clipsArray, tGlobal){
+  let acc = 0;
+  for (let i = 0; i < clipsArray.length; i++){
+    const c = clipsArray[i];
+    const dur = (c.end - c.start);
+    if (tGlobal >= acc && tGlobal < acc + dur - 1e-9){
+      const local = tGlobal - acc;
+      return {index:i, clip:c, local};
+    }
+    acc += dur;
+  }
+  const lastIndex = clipsArray.length -1;
+  const last = clipsArray[lastIndex];
+  return {index:lastIndex, clip:last, local: Math.max(0, (last.end-last.start))};
+}
+
+function updateMiniVideos() {
+  if (!timelineData || miniVideos.length === 0) return;
+  const {index, clip, local} = findClipByGlobalTime(timelineData.timeline, globalPlayheadTime);
+  miniVideos.forEach((mini, i) => {
+    const currentClip = timelineData.timeline[i];
+    mini.style.opacity = 1; // Always show all thumbnails
+    mini.muted = true;
+    if (i === index) {
+      // Active clip: sync to playhead position
+      mini.currentTime = currentClip.start + local;
+      if (isPlayingTimeline) {
+        mini.play().catch(() => {});
+      } else {
+        mini.pause();
+      }
+    } else {
+      // Non-active clips: static thumbnail at start, paused
+      mini.currentTime = currentClip.start;
+      mini.pause();
+    }
+  });
+}
+
+/* Upload handling */
+uploadArea.addEventListener('click', () => fileInput.click());
+
+uploadArea.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  uploadArea.style.borderColor = '#aaa';
+});
+uploadArea.addEventListener('dragleave', () => {
+  uploadArea.style.borderColor = '';
+});
+uploadArea.addEventListener('drop', async (e) => {
+  e.preventDefault();
+  uploadArea.style.borderColor = '';
+  const files = e.dataTransfer.files;
+  if (files && files.length) {
+    await handleFileUpload(files[0]);
+  }
+});
+
+fileInput.addEventListener('change', async (e) => {
+  if (e.target.files && e.target.files.length) {
+    await handleFileUpload(e.target.files[0]);
+  }
+});
+
+async function handleFileUpload(file){
+  hideAllPostUploadElements();
+  video.style.display = 'none';
+  placeholder.style.display = 'block';
+  placeholder.textContent = 'Uploading...';
+
+  const fd = new FormData();
+  fd.append('file', file, file.name);
+  showSpinner(true);
+
+  try {
+    const res = await fetch(`${API_ROOT}/upload`, {
+      method:'POST',
+      body:fd,
+      credentials: 'same-origin'
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Upload failed: ${res.status} - ${errorText}`);
+    }
+    const json = await res.json();
+    timelineId = json.timeline_id;
+    timelineData = json.timeline;
+    totalDuration = computeTotalDuration(timelineData.timeline);
+
+    const objectUrl = URL.createObjectURL(file);
+    video.src = objectUrl;
+    video.load();
+    video.addEventListener('loadedmetadata', () => {
+      video.style.display = 'block';
+      placeholder.style.display = 'none';
+      placeholder.textContent = '⬆️ Click or Drop Video';
+    }, { once: true });
+
+    renderTimelineUI();
+    timelineContainer.style.opacity = '0';
+    timelineContainer.style.display = 'flex';
+    setTimeout(() => { timelineContainer.style.opacity = '1'; }, 10);
+  } catch(err){
+    placeholder.textContent = 'Upload failed. Try again.';
+  } finally {
+    showSpinner(false);
+  }
+}
+
+/* Render timeline (SIMPLE BRANCHED FIX: 100% for single (auto-full), PX+adjust for multi only — no short/black in either) */
+async function renderTimelineUI(){
+  if (!timelineData) return;
+  clipRow.innerHTML = '';
+  totalDuration = computeTotalDuration(timelineData.timeline);
+  const numClips = timelineData.timeline.length;
+  miniVideos = [];
+
+  const barRect = document.getElementById('timelineBar').getBoundingClientRect();
+  const rowAvailable = barRect.width - BUFFER_WIDTH; // Space for blocks after buffer
+  const GAP_PX = 4;
+
+  ruler.innerHTML = '';
+  const ticks = 10;
+  for (let i=0;i<=ticks;i++){
+    const t = (i/ticks) * 100;
+    const el = document.createElement('div');
+    el.className = 'tick';
+    el.style.left = t + '%';
+    ruler.appendChild(el);
+  }
+
+  // BRANCHED: Initial width setup
+  for (let i=0;i<timelineData.timeline.length;i++){
+    const clip = timelineData.timeline[i];
+    const dur = clip.end - clip.start;
+    let w;
+
+    if (numClips === 1) {
+      // SINGLE: Use 100% — browser auto-fills #clipRow exactly (no rounding, no black right)
+      w = '100%';
+    } else {
+      // MULTI: Proportional PX (gap-ignoring initial, fix after)
+      w = Math.max(8, (dur / totalDuration) * rowAvailable);
+    }
+
+    const block = document.createElement('div');
+    block.className = 'clipBlock';
+    if (clip.type === 'ai') block.classList.add('ai');
+    block.style.width = w;
+    block.dataset.clipIndex = i;
+    block.dataset.clipId = clip.clip_id;
+
+    const mini = document.createElement('video');
+    mini.className = 'clipMiniVideo';
+    mini.crossOrigin = 'anonymous';
+    mini.muted = true;
+    mini.playsInline = true;
+    mini.preload = 'metadata';
+    mini.src = clip.url;
+    mini.style.opacity = 1; // Always show thumbnail initially
+    mini.loop = false;
+    block.appendChild(mini);
+    clipRow.appendChild(block);
+    miniVideos.push(mini);
+
+    mini.addEventListener('loadedmetadata', () => {
+      mini.currentTime = clip.start;
+      mini.pause(); // Ensure paused at start for thumbnail
+    }, { once: true });
+
+    mini.addEventListener('error', () => {
+      mini.style.display = 'none';
+      block.style.background = (clip.type === 'ai') ? 'linear-gradient(180deg,#012e3b,var(--clip-ai))' : 'var(--clip-orig)';
+    });
+
+    block.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const startGlobal = computeStartGlobalForIndex(i);
+      setGlobalPlayhead(startGlobal);
+      mini.currentTime = clip.start;
+      mini.play().catch(() => {});
+      video.pause();
+      pauseTimelinePlayback();
+    });
+  }
+
+  // ADJUST ONLY FOR MULTI (single % is already perfect, no gaps to worry)
+  if (numClips > 1) {
+    const totalGaps = (numClips - 1) * GAP_PX;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const currentTotal = Array.from(clipRow.children).reduce((sum, block) => sum + block.offsetWidth, 0);
+        const shortfall = Math.max(0, rowAvailable - (currentTotal + totalGaps));
+        if (shortfall > 0) {
+          // Split shortfall fairly by duration
+          const widths = Array.from(clipRow.children).map(block => parseFloat(block.style.width.replace('px', '')) || block.offsetWidth);
+          let adjusted = 0;
+          widths.forEach((origW, i) => {
+            const clipDur = timelineData.timeline[i].end - timelineData.timeline[i].start;
+            const add = (shortfall * (clipDur / totalDuration));
+            const newW = origW + add;
+            clipRow.children[i].style.width = newW + 'px';
+            adjusted += add;
+          });
+        }
+      });
+    });
+  }
+
+  updateMiniVideos();
+  updatePlayheadPosition();
+  playheadPlus.style.display = 'block';
+  attachAIPlusListener();
+}
+
+function computeStartGlobalForIndex(index){
+  let acc = 0;
+  for (let i=0;i<index;i++){
+    const c = timelineData.timeline[i];
+    acc += (c.end - c.start);
+  }
+  return acc;
+}
+
+/* Playhead */
+function updatePlayheadPosition(){
+  if (!timelineData) return;
+  const barRect = document.getElementById('timelineBar').getBoundingClientRect();
+  const fraction = totalDuration > 0 ? (globalPlayheadTime / totalDuration) : 0;
+  const availableWidth = barRect.width - BUFFER_WIDTH;
+  let leftPx = BUFFER_WIDTH + (fraction * availableWidth);
+  leftPx = Math.max(BUFFER_WIDTH, Math.min(barRect.width - 1.5, leftPx));
+  playhead.style.left = leftPx + 'px';
+  playheadPlus.style.left = leftPx + 'px';
+  updateMiniVideos();
+}
+
+function pointerXToGlobalTime(clientX){
+  const barRect = document.getElementById('timelineBar').getBoundingClientRect();
+  let x = clientX - barRect.left;
+  x = Math.max(BUFFER_WIDTH, Math.min(barRect.width, x));
+  const availableWidth = barRect.width - BUFFER_WIDTH;
+  const frac = availableWidth > 0 ? (x - BUFFER_WIDTH) / availableWidth : 0;
+  return frac * totalDuration;
+}
+
+playhead.addEventListener('pointerdown', (e) => {
+  draggingPlayhead = true;
+  playhead.setPointerCapture(e.pointerId);
+  e.stopPropagation();
+  document.querySelectorAll('.clipBlock, .clipMiniVideo').forEach(el => el.classList.add('dragging-disabled'));
+});
+window.addEventListener('pointerup', (e) => {
+  if (draggingPlayhead){
+    draggingPlayhead = false;
+    const t = pointerXToGlobalTime(e.clientX);
+    setGlobalPlayhead(t);
+    pauseTimelinePlayback();
+    document.querySelectorAll('.clipBlock, .clipMiniVideo').forEach(el => el.classList.remove('dragging-disabled'));
+  }
+});
+window.addEventListener('pointermove', (e) => {
+  if (!draggingPlayhead) return;
+  const t = pointerXToGlobalTime(e.clientX);
+  setGlobalPlayhead(t);
+  pauseTimelinePlayback();
+});
+
+document.getElementById('timelineBar').addEventListener('click', (e) => {
+  if (e.target === playhead || e.target === playheadPlus || e.target === playPauseBtn) return;
+  const t = pointerXToGlobalTime(e.clientX);
+  setGlobalPlayhead(t);
+  pauseTimelinePlayback();
+});
+
+function setGlobalPlayhead(t){
+  globalPlayheadTime = Math.max(0, Math.min(totalDuration, t));
+  updatePlayheadPosition();
+  if (!timelineData) return;
+  const {index, clip, local} = findClipByGlobalTime(timelineData.timeline, globalPlayheadTime);
+  if (clip.type === 'original'){
+    const src = clip.url;
+    if (!video.src || !video.src.includes(src)){
+      video.src = src;
+      video.load();
+      video.addEventListener('loadedmetadata', function once(){ video.currentTime = clip.start + local; video.removeEventListener('loadedmetadata', once); });
+    } else {
+      video.currentTime = clip.start + local;
+    }
+  } else {
+    video.src = clip.url;
+    video.load();
+    video.addEventListener('loadedmetadata', function once(){ video.currentTime = clip.start + local; video.removeEventListener('loadedmetadata', once); });
+  }
+}
+
+/* Playback */
+playPauseBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (isPlayingTimeline) {
+    pauseTimelinePlayback();
+  } else {
+    startTimelinePlayback();
+  }
+});
+
+function pauseTimelinePlayback(){
+  isPlayingTimeline = false;
+  timelinePlayAbort = true;
+  playPauseBtn.textContent = '▶︎';
+  video.pause();
+  miniVideos.forEach(v => v.pause());
+  const tmp = document.getElementById('ai_temp_player');
+  if (tmp) tmp.remove();
+  if (playbackAnimationId) {
+    cancelAnimationFrame(playbackAnimationId);
+    playbackAnimationId = null;
+  }
+}
+
+function animatePlayheadForSegment(globalStart, segDuration) {
+  playbackStartGlobal = globalStart;
+  playbackStartRealTime = performance.now() / 1000;
+
+  function animate() {
+    if (!isPlayingTimeline || timelinePlayAbort) {
+      playbackAnimationId = null;
+      return;
+    }
+
+    const now = performance.now() / 1000;
+    const elapsed = now - playbackStartRealTime;
+    const expectedGlobal = Math.min(globalStart + elapsed, globalStart + segDuration);
+    globalPlayheadTime = expectedGlobal;
+    updatePlayheadPosition();
+
+    if (expectedGlobal < totalDuration) {
+      playbackAnimationId = requestAnimationFrame(animate);
+    }
+  }
+  animate();
+}
+
+async function startTimelinePlayback(){
+  if (!timelineData) return;
+  isPlayingTimeline = true;
+  timelinePlayAbort = false;
+  playPauseBtn.textContent = '⏸';
+
+  let idxLocal = findClipByGlobalTime(timelineData.timeline, globalPlayheadTime);
+  let i = idxLocal.index;
+  let localOffset = idxLocal.local;
+
+  for (; i < timelineData.timeline.length; i++){
+    if (timelinePlayAbort) break;
+    const seg = timelineData.timeline[i];
+    const segDur = seg.end - seg.start;
+    const playStartLocal = (i === idxLocal.index) ? localOffset : 0;
+    const playEndLocal = segDur;
+
+    const globalStart = computeStartGlobalForIndex(i) + playStartLocal;
+    animatePlayheadForSegment(globalStart, playEndLocal - playStartLocal);
+
+    const seekTime = seg.start + playStartLocal;
+    const stopTime = seg.start + playEndLocal;
+    video.src = seg.url;
+    await waitForLoadedMetadata(video);
+    try {
+      video.currentTime = seekTime;
+    } catch (err) {}
+    video.play();
+    await waitForVideoTime(video, stopTime);
+    video.pause();
+
+    globalPlayheadTime = computeStartGlobalForIndex(i + 1) || totalDuration;
+    updatePlayheadPosition();
+
+    if (playbackAnimationId) {
+      cancelAnimationFrame(playbackAnimationId);
+      playbackAnimationId = null;
+    }
+  }
+
+  isPlayingTimeline = false;
+  playPauseBtn.textContent = '▶︎';
+  if (playbackAnimationId) {
+    cancelAnimationFrame(playbackAnimationId);
+    playbackAnimationId = null;
+  }
+}
+
+function waitForLoadedMetadata(vid){
+  return new Promise(resolve => {
+    if (vid.readyState >= 1) return resolve();
+    const cb = () => { vid.removeEventListener('loadedmetadata', cb); resolve(); };
+    vid.addEventListener('loadedmetadata', cb);
+  });
+}
+
+function waitForVideoTime(vid, stopTime){
+  return new Promise(resolve => {
+    const onUpdate = () => {
+      if (vid.currentTime >= stopTime - 0.05 || vid.ended){
+        vid.removeEventListener('timeupdate', onUpdate);
+        resolve();
+      }
+    };
+    vid.addEventListener('timeupdate', onUpdate);
+  });
+}
+
+/* AI insertion */
+function hidePrompt() {
+  if (window.outsideClickListener) {
+    document.removeEventListener('click', window.outsideClickListener);
+    delete window.outsideClickListener;
+  }
+  if (promptInput._inputListener) {
+    promptInput.removeEventListener('input', promptInput._inputListener);
+    delete promptInput._inputListener;
+  }
+  promptBox.style.top = 'auto';
+  promptBox.classList.remove('show');
+  setTimeout(() => { promptBox.style.display = 'none'; }, 300);
+  if (window.onEscape) {
+    window.removeEventListener('keydown', window.onEscape);
+    window.onEscape = null;
+  }
+  promptInput.style.height = 'auto';
+}
+
+generateBtn.addEventListener('click', async () => {
+  if (!timelineData) return;
+  const { index, clip, local } = findClipByGlobalTime(timelineData.timeline, globalPlayheadTime);
+  const prompt = promptInput.value.trim();
+  if (!prompt) {
+    return;
+  }
+
+  generateBtn.disabled = true;
+  generateBtn.textContent = 'Generating...';
+  hidePrompt();
+
+  const fd = new FormData();
+  fd.append('timeline_id', timelineId);
+  fd.append('clip_id', clip.clip_id);
+  fd.append('local_timestamp', String(local));
+  fd.append('prompt', prompt);
+
+  showSpinner(true);
+
+  try {
+    const res = await fetch(`${API_ROOT}/generate-clip`, {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin'
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Generate failed: ${res.status} - ${errorText}`);
+    }
+    const json = await res.json();
+    timelineId = json.timeline_id;
+    timelineData = json.timeline;
+    totalDuration = computeTotalDuration(timelineData.timeline);
+    renderTimelineUI();
+  } catch(err){
+    promptBox.style.display = 'flex';
+    setTimeout(() => promptBox.classList.add('show'), 10);
+    generateBtn.disabled = false;
+    generateBtn.textContent = 'Generate';
+  } finally {
+    showSpinner(false);
+    generateBtn.disabled = false;
+    generateBtn.textContent = 'Generate';
+  }
+});
+
+/* + listener */
+function attachAIPlusListener() {
+  function autoResize() {
+    promptInput.style.height = 'auto';
+    promptInput.style.height = Math.min(promptInput.scrollHeight, 200) + 'px';
+    promptBox.style.height = 'auto';
+  }
+
+  const onPlusClick = (e) => {
+    e.stopPropagation();
+    if (!timelineData) {
+      return;
+    }
+    if (!promptBox.classList.contains('show') && promptBox.style.display !== 'flex') {
+      promptInput.value = '';
+      promptBox.style.display = 'flex';
+      const mainRect = document.getElementById('main').getBoundingClientRect();
+      const uploadHeight = document.getElementById('uploadArea').offsetHeight;
+      const relativeTop = uploadHeight + 40 + 32;
+      promptBox.style.top = (mainRect.top + relativeTop) + 'px';
+      setTimeout(() => {
+        promptBox.classList.add('show');
+        promptInput.focus();
+        autoResize();
+        const outsideClickListener = (e) => {
+          if (!promptBox.contains(e.target)) {
+            hidePrompt();
+          }
+        };
+        document.addEventListener('click', outsideClickListener);
+        window.outsideClickListener = outsideClickListener;
+      }, 10);
+      const onEscape = (e) => { if (e.key === 'Escape') hidePrompt(); };
+      promptInput.addEventListener('keydown', onEscape, { once: true });
+      window.onEscape = onEscape;
+      const onInput = () => autoResize();
+      promptInput.addEventListener('input', onInput);
+      promptInput._inputListener = onInput;
+      promptBox.addEventListener('click', (e) => e.stopPropagation());
+    }
+  };
+  playheadPlus.onclick = onPlusClick;
+}
+
+/* Export */
+exportBtn.addEventListener('click', async () => {
+  if (!timelineId) return;
+  showSpinner(true);
+  try {
+    const res = await fetch(`${API_ROOT}/export/${encodeURIComponent(timelineId)}`, {
+      method:'POST',
+      credentials: 'same-origin'
+    });
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(`Export failed: ${res.status} - ${errorText}`);
+    }
+    const json = await res.json();
+    if (json.export_url) {
+      window.open(json.export_url, '_blank');
+    }
+  } catch(err){
+  } finally {
+    showSpinner(false);
+  }
+});
+
+/* Startup */
+window.addEventListener('resize', () => {
+  if (timelineData) renderTimelineUI();
+});
+
+hideAllPostUploadElements();
+</script>
+</body>
+</html>
