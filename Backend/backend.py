@@ -12,7 +12,7 @@ from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from Backend.backend_config.media_generator import generate_video_from_frame
+from backend_config.media_generator import generate_video_from_frame
 
 # Configure logging
 logging.basicConfig(
