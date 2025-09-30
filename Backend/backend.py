@@ -45,7 +45,7 @@ app.add_middleware(
 
 # Serve uploaded media (so frontend can fetch /uploads/...) and UI folder
 app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
-app.mount("/aibetween", StaticFiles(directory=str(UI_DIR)), name="aibetween")
+app.mount("/", StaticFiles(directory="aibetween", html=True), name="ui")
 
 
 # -------------------------
@@ -505,7 +505,3 @@ async def timeline_duration(timeline_id: str):
         raise HTTPException(status_code=500, detail="Internal server error")
     return JSONResponse({"duration": total_timeline_duration(timeline)})
 
-
-@app.get("/", response_class=HTMLResponse)
-async def root():
-    return RedirectResponse(url="/aibetween/index.html")
