@@ -9,10 +9,10 @@ from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
-from fastapi.responses import JSONResponse, FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from backend_config.media_generator import generate_video_from_frame
+from Backend.backend_config.media_generator import generate_video_from_frame
 
 # Configure logging
 logging.basicConfig(
